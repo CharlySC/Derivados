@@ -1,6 +1,7 @@
 ---
 title: "Griegas"
 subtitle: "Carlos Adrián Sandoval Cuenca"
+date: `{r as.Date(Sys.time())}
 author: "Derivados 2021-2"
 output: 
   pdf_document:
