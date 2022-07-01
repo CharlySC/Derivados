@@ -31,7 +31,7 @@ library(ggpubr)
 library(fExoticOptions)
 ```
 
-# Cálculo Estocástico
+# Movimiento Browniano y Procesos Estocásticos
 
 ## Movimiento Browniano
 
@@ -1144,5 +1144,208 @@ FixedStrikeLookbackOption(TypeFlag = "c",
 
 ## Bibliografía
 
+* Shreve, S. (2004) *Stochastic Calculus for Finance II: Continuous-Time Models*, Springer-Verlag, New York.
+* Wystup, U. (2017) *FX Options and Structure Products*, Wiley, United Kingdom.
+
+
+# Griegas
+
+```{r,echo=TRUE}
+######## Griegas ########
+
+r <- .05
+q <- .0025
+sigma <- .15
+K <- 20
+S <- seq(17,23,.1)
+tau <- c(7,30,180,360)/360
+
+tau_aux <- data.frame(Tau=tau,
+                      Vencimiento=c("1 dia","1 mes","6 meses","1 año"))
+
+```
+
+A partir de la fórmula de B-S es posible obtener sensibilidades del derivado con respecto a los parámetros, las cuales se conocen como *griegas*. A continuación se presentan las fórmulas para opciones largas, las respectivas fórmulas para la opción corta, son las negativas de las largas.
+
+## Delta
+
+La delta corresponde a la sensibilidad del precio del derivado con respecto al precio del subyacente.
+\begin{equation}
+\Delta = \frac{\partial BS}{\partial S} = \phi e^{-q\tau}N(\phi d_1).
+\end{equation}
+Este valor tiene un significado especial y representa la cantidad de subyacente que se debe comprar (vender) para cubrir una posición corta (larga) (*delta-hedge*).
+
+```{r,echo=TRUE,fig.height=3}
+# Delta
+Delta <- function(S,K,tau,r,q,sigma,tipo){
+  d1 <- (log(S/K)+(r-q-.5*sigma^2)*tau)/(sigma*sqrt(tau))
+  N1 <- tipo*exp(-q*tau)*pnorm(tipo*d1)
+  return(N1)
+}
+
+tipo <- 1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Delta"] <- mapply(Delta,Grafica$S,K,Grafica$Tau,r,q,sigma,tipo)
+Grafica <- left_join(Grafica,tau_aux,by = "Tau")
+Grafica$Tau <- NULL
+ggplot(Grafica,aes(x=S,y=Delta,color=Vencimiento)) +
+  geom_line() +
+  labs(title="Delta Call",subtitle = "Largo",x="Subyacente")
+
+tipo <- -1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Delta"] <- mapply(Delta,Grafica$S,K,Grafica$Tau,r,q,sigma,tipo)
+Grafica <- left_join(Grafica,tau_aux,by = "Tau")
+Grafica$Tau <- NULL
+ggplot(Grafica,aes(x=S,y=Delta,color=Vencimiento)) +
+  geom_line() +
+  labs(title="Delta Put",subtitle = "Largo",x="Subyacente")
+
+```
+
+## Gamma
+
+La gamma corresponde a la sensibilidad de la delta del derivado con respecto al precio del subyacente.
+\begin{equation}
+\Gamma = \frac{\partial^2 BS}{\partial S^2} = \frac{e^{-q\tau}N'(d_1)}{S\sigma\sqrt{\tau}}.
+\end{equation}
+Este valor representa que tanto se debe de reajustar la delta para hacer el delta-hedge.
+
+```{r,echo=TRUE,fig.height=3}
+# Gamma
+Gamma <- function(S,K,tau,r,q,sigma){
+  d1 <- (log(S/K)+(r-q-.5*sigma^2)*tau)/(sigma*sqrt(tau))
+  griega <- exp(-q*tau)*dnorm(d1)/(S*sigma*sqrt(tau))
+  return(griega)
+}
+
+tipo <- 1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Gamma"] <- mapply(Gamma,Grafica$S,K,Grafica$Tau,r,q,sigma)
+Grafica <- left_join(Grafica,tau_aux,by = "Tau")
+Grafica$Tau <- NULL
+ggplot(Grafica,aes(x=S,y=Gamma,color=Vencimiento)) +
+  geom_line() +
+  labs(title="Gamma",subtitle = "Largo",x="Subyacente")
+
+```
+
+## Vega
+
+La vega corresponde a la sensibilidad del derivado con respecto al parámetro de la volatilidad.
+\begin{equation}
+\nu = \frac{\partial BS}{\partial \sigma} = Se^{-q\tau}N'(d_1)\sqrt{\tau}.
+\end{equation}
+Este valor representa los cambios en el precio debido a cambios en la volatilidad.
+
+```{r,echo=TRUE,fig.height=3}
+# Vega
+Vega <- function(S,K,tau,r,q,sigma){
+  d1 <- (log(S/K)+(r-q-.5*sigma^2)*tau)/(sigma*sqrt(tau))
+  griega <- S*exp(-q*tau)*dnorm(d1)*sqrt(tau)
+  return(griega)
+}
+
+tipo <- 1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Vega"] <- mapply(Vega,Grafica$S,K,Grafica$Tau,r,q,sigma)
+Grafica <- left_join(Grafica,tau_aux,by = "Tau")
+Grafica$Tau <- NULL
+ggplot(Grafica,aes(x=S,y=Vega,color=Vencimiento)) +
+  geom_line() +
+  labs(title="Vega",subtitle = "Largo",x="Subyacente")
+
+```
+
+## Theta
+
+La theta corresponde a la sensibilidad del derivado con respecto al vencimiento.
+\begin{equation}
+\Theta = \frac{\partial BS}{\partial \tau} = -\frac{e^{-q\tau}SN'(d_1)\sigma}{2\sqrt{\tau}}-\phi rKe^{-r\tau}N(\phi d_2)+\phi qSe^{-q\tau}N(\phi d_1).
+\end{equation}
+Este valor representa los cambios en el precio a medida que la opción se acerca a vencimiento.
+
+```{r,echo=TRUE,fig.height=3}
+# Theta
+Theta <- function(S,K,tau,r,q,sigma,tipo){
+  d1 <- (log(S/K)+(r-q-.5*sigma^2)*tau)/(sigma*sqrt(tau))
+  d2 <- d1-sigma*sqrt(tau)
+  griega <- -.5*exp(-q*tau)*S*dnorm(d1)*sigma/sqrt(tau)
+            -tipo*r*K*exp(-r*tau)*pnorm(tipo*d2)
+            +tipo*q*S*exp(-q*tau)*pnorm(tipo*d1)
+  return(griega)
+}
+
+S <- c(17,19,21,23)
+tau <- seq(7,360)/360
+
+tipo <- 1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Theta"] <- mapply(Theta,Grafica$S,K,Grafica$Tau,r,q,sigma,tipo)
+Grafica$S <- factor(Grafica$S)
+ggplot(Grafica,aes(x=Tau,y=Theta,color=S)) +
+  geom_line() +
+  labs(title="Theta Call",subtitle = "Largo",color="Subyacente",x="Vencimiento")
+
+tipo <- -1
+Grafica <- data.frame(S=rep(S,length(tau)),Tau=rep(tau,each=length(S)))
+Grafica[,"Theta"] <- mapply(Theta,Grafica$S,K,Grafica$Tau,r,q,sigma,tipo)
+Grafica$S <- factor(Grafica$S)
+ggplot(Grafica,aes(x=Tau,y=Theta,color=S)) +
+  geom_line() +
+  labs(title="Theta Put",subtitle = "Largo",color="Subyacente",x="Vencimiento")
+
+```
+
+
+## Aproximaciones con Griegas
+
+Otro uso de las griegas es realizar aproximaciones del precio o del PnL (Profit & Loss).
+
+Aplicando series de Taylor al precio de una opción $V(t)$ obtenemos
+\begin{equation}
+V(S+\delta S,t+ \delta t) = V(S,t)+\Delta\delta S+\frac{1}{2}\Gamma\delta S^2+\Theta\delta t+o(\delta S,\delta t)
+\end{equation}
+
+Ahora tomemos un portafolio el cual consta del derivado $V(t)$ y $M$ unidades del subyacente $S$, i.e.
+\begin{equation}
+P(S,t) = V(S,t) + M\cdot S,
+\end{equation}
+de modo que
+\begin{equation}
+P(S+\delta S,t+ \delta t) = P(S,t)+(M+\Delta)\delta S+\frac{1}{2}\Gamma\delta S^2+\Theta\delta t+o(\delta S,\delta t).
+\end{equation}
+
+El PnL a tiempo $t+\delta t$ puede ser calculado como
+\begin{equation}
+PnL_{t+\delta t}=P(S+\delta S,t+ \delta t)-P(S,t) = (M+\Delta)\delta S+\frac{1}{2}\Gamma\delta S^2+\Theta\delta t+o(\delta S,\delta t).
+\end{equation}
+En el caso de un portafolio delta hedged se tendría $M=-\Delta$, con lo cual se tendría
+\begin{equation}
+PnL_{t+\delta t}=\frac{1}{2}\Gamma\delta S^2+\Theta\delta t+o(\delta S,\delta t).
+\end{equation}
+
+El razonamiento anterior se puede extender para incluir más griegas y hacer *vega-hedge*.
+
+## Ejercicios
+
+**Ejercicio** Exprese la $\Delta_{\text{Call}}$ en términos de $\Delta_{\text{Put}}$.
+
+**Ejercicio** Demuestre que la $\Gamma_{\text{Call}}=\Gamma_{\text{Put}}$ y que $\nu_{\text{Call}}=\nu_{\text{Put}}$.
+
+**Ejercicio (Forward Delta)** Demuestre que el número de forwards largos para cubrir una opción corta es $\phi N(\phi d_1)$.
+
+**Ejercicio (Simetría Put-Call)** Definimos el precio forward $F(\tau)$ como el strike $K$ tal que el precio del forward es igual a cero.
+Demuestre que $BS(S,K,\tau,r,q,\sigma,1)=\frac{K}{F(\tau)}BS\left(S,\frac{F^2(\tau)}{K},\tau,r,q,\sigma,-1\right)$.
+
+**Ejercicio (Delta ATM)** Encuentre el strike $K$ tal que $\Delta_{\text{Call}}+\Delta_{\text{Put}}=0$
+
+**Ejercicio (Strike en términos de Delta)** Exprese el strike $K$ en términos de delta $\Delta=\phi N(\phi d_1)$
+
+**Ejercicio** Grafique la delta, gamma y vega con respecto al tiempo y la theta con respecto al subyacente e interprete las gráficas.
+
+## Bibliografía
+
+* Hull, J. (2018) *Options, Futures and other Derivative Securities*, 10th edition, Pearson, New York.
 * Shreve, S. (2004) *Stochastic Calculus for Finance II: Continuous-Time Models*, Springer-Verlag, New York.
 * Wystup, U. (2017) *FX Options and Structure Products*, Wiley, United Kingdom.
