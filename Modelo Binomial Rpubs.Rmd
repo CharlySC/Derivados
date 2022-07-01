@@ -1,0 +1,176 @@
+---
+title: Modelo Binomial
+author: https://github.com/CharlySC/Derivados
+date: 'Última fecha de modificación: `r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: true
+    theme: readable
+    code_folding: show
+subtitle: Carlos Adrián Sandoval Cuenca
+header_includes:
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsthm}
+toc-title: Contenido
+---
+
+```{r global_options, include=FALSE,warning=FALSE}
+knitr::opts_chunk$set(comment = NA,warning = FALSE,echo=FALSE)
+```
+\pagenumbering{gobble}
+
+# El Modelo de Mercado
+
+El modelo Cox-Ross-Rubinstein (también conocido como *modelo binomal*) fue propuesto por Cox, Ross y Rubinstein en 1979 como una discretización del modelo de Black-Scholes basado en árboles multiplicativos, el cual resulta muy útil para valuar opciones americanas y exóticas.
+
+Dado un intervalo de tiempo $\mathbb{T}=[0,T]$, con $T>0$ y una partición uniforme de $\mathbb{T}$, $0=t_0<\ldots,t_N=T$ donde $\Delta t=t_k-t_{k-1}=T/N$ para toda $k=1,\ldots,N$, el modelo parte de modelar el precio subyacente $S$, el cual en cada tiempo $t_k$ puede incrementar por un factor $u$ (*up*) o disminuir por un factor $d$ (*down*), con $u>d$.
+
+Partiendo del precio spot del subyacente $S_0$, a tiempo $t_1$, el valor del subyacente puede pasar a $S_u$ con probabilidad $q$ en caso de aumentar o a $S_d$ con probabilidad $1-q$ en caso de disminuir. El término multiplicativo se refiere a que $S_u=uS_0$ y $S_d=dS_0$. A tiempo $t_2$, el activo puede tomar las siguientes rutas $S_{uu}=u^2S_0$ con proba $q^2$, $S_{ud}=udS_0=S_{du}$ con proba $q(1-q)$ o $S_{dd}=d^2S_0$ con proba $(1-q)^2$, y así sucesivamente para cada $t_k$ como se muestra en la siguiente Figura.
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=.6\linewidth]{ModeloBinomial.png}
+\end{figure}
+
+Una vez modelado la dinámica del subyacente, procedemos a introducir la cuenta de mercado de dinero $B(t,T)$, el cual corresponde con el valor de una unidad de dinero a tiempo $t$ en un tiempo futuro $T$ y el cual está dado por 
+\begin{equation}
+B(t,T)=e^{r(T-t)},
+\end{equation}
+donde $r$ es la *tasa libre de riesgo*.
+
+La proba $q$ corresponde a la *medida de riesgo neutral*, la cual evita que existan oportunidades de arbitraje. Se puede demostrar que 
+\begin{equation}
+q=\frac{B(t_{k-1},t_k)S_0-S_d}{S_u-S_d}=\frac{e^{r\Delta t}S_0-S_d}{S_u-S_d}=\frac{e^{r\Delta t}-d}{u-d}.
+\end{equation}
+
+Considere ahora un derivado europeo $X$ con payoff $X_T=h(S_T)$. Por ejemplo, para el caso de un call $X_T=(S_T-K)_+$ y para el caso de un put $X_T=(K-X_T)_+$. 
+
+Bajo el modelo binomial, el precio del derivado $X$ con payoff $h(S_T)$ está dado por
+\begin{equation}
+V_0 = e^{-rT}\mathbb{E}(h(S_T)) =e^{-rT}\sum_{k=0}^N {N \choose k} q^N(1-q)^{N-k}\ h(u^Nd^{N-k}S_0).
+\end{equation}
+
+La fórmula anterior también se puede calcular de manera recursiva. Definamos $S_k^m$  el valor del activo a tiempo $t_k$ en el nodo $m$ para cada $k=0,\ldots,N$ y $m=0,\ldots,k$ y de forma análoga el valor del derivado $V_k^m$. Bajo esta nueva notación tenemos que a tiempo $t_0=0$, $S_0=S_0^0$, a tiempo $t_1$, $S_1^0=dS_0$ y $S_1^1=uS_0$, a tiempo $t_2$, $S_2^0=d^2S_0$, $S_2^1=udS_0$ y $S_2^2=u^2S_0$, y así sucesivamente. En general, a tiempo $t_k$, el activo puede tomar uno de los siguiente $m+1$ valores $S_k^m=u^kd^{k-m}S_0$, para $m=0,\ldots,k$. Por lo tanto, el valor del derivado $V_0^0$ está dado de forma recursiva por
+\begin{align}
+V_N^m &= h(S_N^m), \quad m=0,\ldots,N \label{payoff} \\ 
+V_k^m &= e^{-r\Delta t}\left[ qV_{k+1}^{m+1}+(1-q)V_{k+1}^m\right], \quad k=0,\ldots,N-1, \quad m=0,\ldots,k. \label{precio}
+\end{align}
+
+
+# Implementación
+
+En la práctica usualmente se toma $q=\frac{1}{2}$, lo cual implica que la probabilidad de subir es igual a la probabilidad de bajar y con lo cual se obtiene 
+\begin{align}
+u &= e^{r\Delta t}(1+\sqrt{e^{\sigma^2\Delta t}-1}), \\
+d &= e^{r\Delta t}(1-\sqrt{e^{\sigma^2\Delta t}-1}),
+\end{align}
+donde $\sigma$ es la volatilidad del subyacente. Para mayor detalle se puede consultar Willmott (1995).
+
+Una vez conocidos los factores $u$ y $d$, el primer paso para valuar una opción call es construir el árbol multiplicativo del subyacente. Para esto creamos la función **arbol_S** la cual utiliza los siguientes parámetros.
+
+* $\tau$: Vencimiento de la opción (en años).
+* $N$: Número de particiones del intervalo $[0,\tau]$.
+* $S$: Precio spot del subyacente.
+* $r$: Tasa libre de riesgo (anual).
+* $\sigma$: Volatilidad del subyacente (anual).
+
+```{r, include=TRUE,echo=TRUE}
+arbol_S <- function(tau,N,S,r,sigma){
+  delta_t <- tau/N
+  arbol <- matrix(0,nrow = N+1,ncol = N+1)
+  u <- exp(r*delta_t)*(1+sqrt(exp(sigma^2*delta_t)-1))
+  d <- exp(r*delta_t)*(1-sqrt(exp(sigma^2*delta_t)-1))
+  for (i in 1:nrow(arbol)) {
+    for (j in 1:i) {
+      arbol[i, j] = S*u^(j-1)*d^((i-1)-(j-1))
+    }  
+  }
+  return(arbol)
+}
+arbol_S(tau=1,N=4,S=100,r=.05,sigma=.2)
+```
+
+La función **arbol_S** genera un árbol con $N+1$ nodos (columnas) y $N+1$ puntos intermedios (renglones) del intervalo de tiempo $[0,t]$.
+
+Una vez generado el árbol del subyacente, procedemos a generar el árbol del derivado con la función **arbol_V**, la cual usa los mismos parámetros que la función **arbol_S** y adicionalmente usa
+
+* $K$: Precio strike.
+* $\phi$: Variable indicadora donde $\phi=1$ para call y $\phi=-1$ para put.
+
+```{r, include=TRUE,echo=TRUE}
+arbol_V <- function(S,K,tau,N,r,sigma,phi){
+  delta_t <- tau/N
+  u <- exp(r*delta_t)*(1+sqrt(exp(sigma^2*delta_t)-1))
+  d <- exp(r*delta_t)*(1-sqrt(exp(sigma^2*delta_t)-1))
+  arbol_aux <- arbol_S(tau,N,S,r,sigma)
+  q <- (exp(r*delta_t)-d)/(u-d)
+  
+  arbol <- matrix(0,nrow = nrow(arbol_aux),ncol = ncol(arbol_aux))
+  arbol[nrow(arbol),] <- pmax(phi*arbol_aux[nrow(arbol_aux),]-phi*K,0)
+  
+  for(i in (nrow(arbol)-1):1){
+    for(j in 1:i){
+      arbol[i,j] <- exp(-r*delta_t)*(q*arbol[i+1,j+1]+(1-q)*arbol[i+1,j])
+    }
+  }
+  resultado=list(precio=arbol[1,1],
+                 arbol_activo=arbol_aux,
+                 arbol_opcion=arbol)
+  return(resultado)
+}
+arbol_V(S=100,K=100,tau=1,N=4,r=.05,sigma=.2,phi=1)
+```
+
+La función **arbol_V** reutiliza la función **arbol_S** para generar el árbol del subyacente, sin embargo, lo único que necesitamos de aquél árbol es su valor a vencimiento $S_T=S_N^m$, $m=0,\ldots,N$, con el cual calculamos el payoff $X_T$ y de ahí en adelante calculamos el precio del derivado $V_0^0$ hacia atrás con las ecuaciones (\ref{payoff}) y (\ref{precio}).
+
+# El Modelo de Black-Scholes
+
+El modelo de Black-Scholes (B-S) fue propuesto por el físico y economista Fischer Black y el economista Myron Scholes y posteriormente fue formalizado a través del cálculo esticástico por Robert Merton. El modelo brinda el precio de una opción financiera el cual esta dado por la ecuación
+
+\begin{align}
+BS(S,K,\tau,r,q,\sigma,\phi) &= \phi Se^{-q\tau}N(\phi d_1) - \phi Ke^{-r\tau}N(\phi d_2) \\
+d_1 &= \frac{1}{\sigma\sqrt{\tau}}\left( \log\left( \frac{S}{K}\right) +\left( r-q+\frac{1}{2}\sigma^2 \right) \tau \right), \\
+ d_2 &= d_1 - \sigma\sqrt{\tau}
+\end{align}
+donde
+
+* $S$: Precio spot del subyacente.
+* $K$: Precio strike pactado.
+* $\tau$: Años por vencer de la opción.
+* $r$: Tasa de descuento doméstica.
+* $q$: Tasa de descuento extranjera (Tasa de dividendos).
+* $\sigma$: Volatilidad anual.
+* $\phi$: Indicadora igual a 1 si es call y a -1 si es put.
+
+```{r, include=TRUE,echo=TRUE}
+BS <- function(S,K,tau,r,sigma,phi){
+  d1 <- (log(S/K)+(r+.5*sigma^2)*tau)/(sigma*sqrt(tau))
+  d2 <- d1 - sigma*sqrt(tau)
+  precio <- phi*S*pnorm(phi*d1)-phi*K*exp(-r*tau)*pnorm(phi*d2)
+  return(precio)
+}
+BS(S=100,K=100,tau=1,r=.05,sigma=.2,phi=1)
+```
+
+Con el fin de corroborar nuestras cuentas, comparamos el precio de la opción call con spot $S=100$, strike $K=100$, tasa libre de riesgo $r=5\%$, volatilidad $\sigma=20\%$ y vencimiento $T$ de un año, el cual bajo el modelo binomial con $N=4$ particiones es igual a `r arbol_V(t=1,N=4,S=100,K=100,r=.05,sigma=.2,phi=1)$precio`, mientras que bajo el modelo de Black-Scholes obtenemos `r BS(S=100,K=100,tau=1,r=.05,sigma=.2,phi=1)`. En la medida que se tomen más particiones, i.e. $N\rightarrow \infty$, el modelo binomial converge al modelo de B-S.
+
+# Ejercicios
+
+**Ejercicio** Considere el modelo binomial a un periodo $\{0,T\}$ con precio spot del activo $S_0$ y cuenta de mercado de dinero $B(0,T)$. Demuestre que si $S_d<B(0,T)S_0<S_u$, entonces no existen oportunidades de arbitraje y $0<q<1$.
+
+**Ejercicio** Elabore una gráfica donde el eje de las $x$ sea el número de particiones $N$ del intervalo $\mathbb{T}$ y en el eje $y$ sea la diferencia entre el precio de una opción put bajo el modelo binomial y bajo el modelo de B-S (Use los mismos parámetros en cada modelo).
+
+**Ejercicio** Una **opción americana** permite a la parte larga ejercer el contrato en cualquier instante $t\in\mathbb{T}$. Para valuar está opción se debe modificar la función recursiva (\ref{precio}) por 
+\begin{equation}
+V_k^m = \max\{h(S_k^m),e^{-r\Delta t}\left[ qV_{k+1}^{m+1}+(1-q)V_{k+1}^m\right]\}, \quad k=0,\ldots,N-1, \quad m=0,\ldots,k.
+\end{equation}
+Modifique la función **arbol_V** para valuar opciones americanas y corrobore sus resultados con alguna paquetería existente para valuar opciones americanas.
+
+# Bibliografía
+
+* Shreve, S. (2004) *Stochastic Calulus for Finance I: The Binomial Asste Pricing Model*, Springer-Verlag, New York.
+* Willmott, P. (1995) *The Mathematics of Financial Derivatives: A Student Introduction*, Cambridge University Press, Cambridge.

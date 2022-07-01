@@ -1,0 +1,254 @@
+---
+title: Monte Carlo
+author: https://github.com/CharlySC/Derivados
+date: 'Última fecha de modificación: `r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: true
+    theme: readable
+    code_folding: show
+subtitle: Carlos Adrián Sandoval Cuenca
+header_includes:
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsthm}
+toc-title: Contenido
+---
+
+```{r global_options, include=FALSE,warning=FALSE}
+knitr::opts_chunk$set(comment = NA,warning = FALSE,echo=FALSE)
+```
+\pagenumbering{gobble}
+```{r, include=FALSE}
+###### Paqueterias y Funciones
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(fExoticOptions)
+```
+
+# Monte Carlo
+
+La fórmula de valuación de riesgo neutral brinda el precio de cualquier derivado europeo con payoff $X(T)=h(S(T))$ y está dada por 
+\begin{equation}
+\widetilde{\mathbb{E}}(e^{-r(T-t)}X(T)\mid \mathcal{F}_t)
+\end{equation}
+
+donde el subyacente sigue la siguiente dinámica estocástica bajo la medida de riesgo neutral $\widetilde{\mathbb{P}}$
+\begin{equation}
+dS(t)=(r-q)S(t)dt+\sigma S(t)d\widetilde{W}(t),
+\end{equation}
+y con distribución $S(T)=S(0)e^Z$ con $Z$ una distribución normal
+\begin{equation}
+Z \sim N\left(\left(r-q-\frac{1}{2}\sigma^2\right)T,\sigma^2T\right)
+\end{equation}
+
+La técnica de Monte Carlo se basa en la *ley de los grandes números*, la cual establece que la esperanza de una v.a. $Z$ converge a la media muestral cuando el tamaño de la muestra tiende a infinito, es decir,
+\begin{equation}
+\mathbb{E}(f(Z))=\lim_{n\rightarrow\infty}\frac{1}{n}\sum_{i=1}^n f(z_i)
+\end{equation}
+
+Esta técnica suele usarse para valuar opciones donde el cálculo de la esperanza no tiene una fórmula semi-analítica. 
+
+Para empezar, ejemplificaremos su uso con una opción call europea $C(T,K)$. Para esto se utilizará la fórmula de valuación de riesgo neutral con payoff $X(T)=(S(T)-K)_+$ y $S(T)$ como se definió anteriormente. Por lo tanto, primero se generará una muestra aleatoria $\{s_1,\ldots,s_n\}$ de la v.a. $S=S(T)$
+\begin{align*}
+C(T,K) &= \mathbb{E}(e^{-rT}(S(T)-K)_+) \\
+&\approx\frac{1}{n}\sum_{i=1}^n e^{-rT}(s_i-K)_+
+\end{align*}
+
+```{r,echo=T}
+
+# Funcion para precio de una opcion bajo Black-Scholes
+BS <- function(s,k,t,r,q,sigma,phi){
+  d1 <- (log(s/k)+(r-q+.5*sigma^2)*t)/(sigma*sqrt(t))
+  d2 <- d1-sigma*sqrt(t)
+  precio <- phi*(s*exp(-q*t)*pnorm(phi*d1)-k*exp(-r*t)*pnorm(phi*d2))
+  return(precio)
+}
+
+r <- .04125
+q <- .00125
+mu <- r-q
+sigma <- .2
+t <- 180/360
+s <- 19.85
+k <- s*exp((r-q)*t)
+phi <- 1
+
+BS(s,k,t,r,q,sigma,phi)
+
+num_sim <- 1000000
+media <- (r-q-.5*sigma^2)*t
+desv <- sigma*sqrt(t)
+z <- rnorm(num_sim,media,desv)
+mean(exp(-r*t)*pmax(s*exp(z)-k,0))
+
+```
+
+# Opciones Exóticas
+
+Las opciones exóticas son aquellas donde el payoff de la opción depende de la trayectoria recorrida por el subyacente. Estos productos por lo general son más baratos que los derivados vanilla y sirven para para participantes de mercado con una expectativa muy específica del mercado. La variedad de opciones exóticas es muy grande, sin embargo, después de la crisis de los 90 su popularidad cayó.
+
+## Opciones Barrera
+
+Unas de las opciones exóticas más famosas son las opciones barrera, en las cuales se tiene una opción call o put y se establece una barrera, en la cual la opción se desactiva (*knock-out*) o se activa (*knock-in*) cuando alcanza toca labarrera. La barrera puede fijarse por debajo (*down*) o por arriba (*up*) del precio spot. Por ejemplo, una opción call que se desactiva cuando supera la barrera recibe el nombre de *call up-and-out*. También es posible incluir dos barreras y hacer combinaciones in y out con ambas.
+
+El payoff de una opción call up-and-out con barrera $B$ está dado por $(S(T)-K)_+$ si $S(t)<B$ para toda $t\in[0,T]$. Definamos $M(T)=\max\{S(t);t\in[0,T]\}$, entonces dicho payoff también puede escribirse como 
+\begin{equation}
+(S(T)-K)_+\textbf{1}_{\{M(T)<B\}}
+\end{equation}
+y es posible encontrar una distribución para el máximo de la trayectoria del subyacente y la correlación entre este y el subyacente para obtener una fórmula semi-analítica bajo el modelo de Black-Scholes.
+
+```{r}
+
+# Funcion para browniano geometrico
+brown_geom <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp(mu*t+sigma*w)
+  return(s)
+}
+
+barrera <- 1.2*k
+num_sim <- 1000
+num_puntos <- 200
+Simulaciones <- matrix(0,nrow = num_puntos+1,ncol = num_sim)
+for(i in 1:ncol(Simulaciones)){
+  Simulaciones[,i] <- brown_geom(num_puntos,t,s,mu,sigma)
+}
+Simulaciones <- cbind.data.frame(tiempo=(1:nrow(Simulaciones))/360,Simulaciones)
+Simulaciones <- gather(Simulaciones,simulacion,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=simulacion)) +
+  geom_line() +
+  labs(title="Simulacion Movimiento Browniano") +
+  geom_hline(aes(yintercept = barrera,color="Barrera")) +
+  theme(legend.position = 'none')
+
+```
+
+El precio de una opción call up-and-out con barrera `r barrera` es
+
+```{r, echo=T}
+
+Indicadora <- Simulaciones %>%
+  select(simulacion,valor) %>%
+  group_by(simulacion) %>%
+  summarize(max=max(valor)) %>%
+  mutate(indicadora=ifelse(max>barrera,0,1))
+
+Payoff <- Simulaciones[which(Simulaciones$tiempo==max(Simulaciones$tiempo)),] %>%
+  left_join(Indicadora[,c("simulacion","indicadora")],by="simulacion") %>%
+  mutate(tiempo=NULL,
+         payoff=pmax(valor-k,0)*indicadora)
+
+mean(exp(-r*t)*Payoff$payoff)
+```
+
+Comparando nuestro resultado con la paquetería **fExoticOptions** obtenemos
+
+```{r, echo=T}
+StandardBarrierOption(TypeFlag = "cuo",
+                      S = s,
+                      X = k,
+                      H = barrera,
+                      K = 0,
+                      Time = t,
+                      r = r,
+                      b = r-q,
+                      sigma = sigma)
+```
+
+## Opciones Asiáticas
+
+Las opciones asiáticas promedian la trayectoria recorrida por el subyacente, dicha media puede ser aritmética, geométrica o armónica.
+
+A continuación se muestran los diferentes tipos de payoff, donde $A(T)$ representa la media de la trayectoria recorrida.
+\begin{itemize}
+\item Average strike call: $(A(T)-K)_+$
+\item Average strike put: $(K-A(T))_+$
+\item Average price call: $(S(T)-A(T))_+$
+\item Average price put: $(A(T)-S(T))_+$
+\end{itemize}
+
+Este tipo de opción tiene una fórmula semi-analítica para el tipo geométrico pero no para el artimético ni armónico.
+
+```{r, echo=T}
+Payoff <- Simulaciones %>%
+  select(simulacion,valor) %>%
+  group_by(simulacion) %>%
+  summarize(promedio=exp(mean(log(valor)))) %>%
+  mutate(payoff=pmax(promedio-k,0))
+
+mean(exp(-r*t)*Payoff$payoff)
+```
+
+Comparando nuestro resultado con la paquetería **fExoticOptions** obtenemos
+
+```{r, echo=T}
+GeometricAverageRateOption(TypeFlag = "c",
+                      S = s,
+                      X = k,
+                      Time = t,
+                      r = r,
+                      b = r-q,
+                      sigma = sigma)
+```
+
+## Opciones Lookback
+
+Las opciones lookback se fijan en los valores máximos o mínimos del subyacente durante la vida del contrato.
+
+A continuación se muestran los diferentes tipos de payoff, donde $M(T)$ representa el máximo de la trayectoria y $m(T)$ el mínimo de la trayectoria.
+
+* Floating strike call: $M(T)-S(T)$
+* Floating strike put: $S(T)-m(T)$
+* Fixed strike call: $(M(T)-K)_+$
+* Fixed strike put: $(K-m(T))_+$
+* Lookback Straddle / Range: $M(T)-m(T)$
+
+Este tipo de opción cuenta con fórmulas semi-analíticas bajo el modelo de Black-Scholes.
+
+```{r, echo=T}
+Payoff <- Simulaciones %>%
+  select(simulacion,valor) %>%
+  group_by(simulacion) %>%
+  summarize(min=min(valor)) %>%
+  mutate(payoff=pmax(k-min,0))
+
+mean(exp(-r*t)*Payoff$payoff)
+```
+
+Comparando nuestro resultado con la paquetería **fExoticOptions** obtenemos
+
+```{r, echo=T}
+FixedStrikeLookbackOption(TypeFlag = "c",
+                          S = s,
+                          SMinOrMax = min(Simulaciones$valor),
+                          X = k,
+                          Time = t,
+                          r = r,
+                          b = r-q,
+                          sigma = sigma)
+```
+
+# Ejercicios
+
+**Ejercicio (Barrier Option)** Agregue la característica de que en una opción barrera, en caso de hacer knock-out, la opción pague un monto fijo $M$. Modifique el código anterior para valuar una opción put down-and-out con esta modificación y compare sus resultados con la paquetería **fExoticOptions**.
+
+**Ejercicio (Double Barrier Option)** Modifique el código anterior para valuar una opción put doble-barrera up-and-out-down-and-out y compare sus resultados con la paquetería **fExoticOptions**.
+
+**Ejercicio (Parisian Option)** Una opción parisina es un tipo de opción barrera exótica donde el subyacente debe permanecer por arriba o por debajo de la barrera cierto número de días (en total) para que ocurre el knock-in o el knock-out. Modifique el código anterior para valuar una opción call parisina up-and-out.
+
+**Ejercicio (Asian Option)** Modifique el código anterior para valuar una opción asiática average price call, con media aritmética.
+
+**Ejercicio (Lookback Option)** Modifique el código anterior para valuar una opción lookback straddle.
+
+# Bibliografía
+
+* Shreve, S. (2004) *Stochastic Calculus for Finance II: Continuous-Time Models*, Springer-Verlag, New York.
+* Wystup, U. (2017) *FX Options and Structure Products*, Wiley, United Kingdom.

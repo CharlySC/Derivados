@@ -1,0 +1,383 @@
+---
+title: Estrategias
+author: https://github.com/CharlySC/Derivados
+date: 'Última fecha de modificación: `r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: true
+    theme: readable
+    code_folding: show
+subtitle: Carlos Adrián Sandoval Cuenca
+header_includes:
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsthm}
+toc-title: Contenido
+---
+
+```{r global_options, include=FALSE,warning=FALSE}
+knitr::opts_chunk$set(comment = NA,warning = FALSE,echo=TRUE)
+```
+\pagenumbering{gobble}
+```{r, include=FALSE}
+###### Paqueterias ######
+library(ggplot2)
+```
+
+# Forwards y Opciones Vanilla
+
+La fórmula de valuación de riesgo neutral brinda el precio de cualquier derivado europeo con payoff $X(T)=h(S(T))$ y está dada por 
+\begin{equation}
+\widetilde{\mathbb{E}}(e^{-r(T-t)}X(T)\mid \mathcal{F}_t)
+\end{equation}
+
+donde el subyacente sigue la siguiente dinámica estocástica bajo la medida de riesgo neutral $\widetilde{\mathbb{P}}$
+
+\begin{equation}
+dS(t)=rS(t)dt+\sigma S(t)d\widetilde{W}(t).
+\end{equation}
+
+```{r,fig.height=5}
+
+# Funcion para browniano geometrico
+brown_geom <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp(mu*t+sigma*w)
+  return(s)
+}
+
+n <- 1000
+t <- seq(0,1,1/n)
+s0 <- 100
+mu <- -.05
+sigma <- .5
+k <- 100
+set.seed(456789)
+
+Simulacion <- data.frame(Tiempo=t,Subyacente=brown_geom(n,1,s0,mu,sigma))
+s_T <- Simulacion$Subyacente[nrow(Simulacion)]
+ggplot(Simulacion,aes(x=Tiempo,y=Subyacente)) +
+  geom_line() +
+  labs(title="Simulacion trayectoria") +
+  geom_hline(aes(yintercept = k,color="Strike")) +
+  geom_hline(aes(yintercept = s_T,color="S(T)")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+El precio de un forward se obtiene al tomar un payoff igual a $X(T)=S(T)-K$, el precio de un call se obtiene al usar el payoff $X(T)=(S(T)-K)_+$ y el precio de un put se obtiene al usar el payoff $X(T)=(K-S(T))_+$.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+######## Payoffs Opciones Vanilla ########
+
+s <- c(k-1:round(k/2),k,k+1:round(k/2))
+
+# Call largo
+X <- pmax(s-k,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Call",subtitle = "Largo") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "ITM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "OTM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+  
+# Call corto
+X <- -pmax(s-k,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Call",subtitle = "Corto") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "ITM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "OTM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+  
+# Put largo
+X <- pmax(k-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Put",subtitle = "Largo") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "OTM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "ITM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+  
+# Put corto
+X <- -pmax(k-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Put",subtitle = "Corto") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "OTM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "ITM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+# Forward largo
+X <- pmax(s-k,0)-pmax(k-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Forward",subtitle = "Largo") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "ITM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "OTM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+# Forward corto
+X <- k-s
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Forward",subtitle = "Corto") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  geom_vline(aes(xintercept = s_T,color="S(T)")) +
+  geom_label(aes(x = k, y = mean(X)*2, label = "ATM")) +
+  geom_label(aes(x = max(s)-(max(s)-k)/4, y = mean(X)*2, label = "OTM")) +
+  geom_label(aes(x = min(s)+(k-min(s))/4, y = mean(X)*2, label = "ITM")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+# Estrategias con Opciones Vanilla
+
+Es posible crear nuevos productos como combinación lineal de estos 3 productos, los cuales reciben el nombre de *estrategias*
+
+## Call Spread (Bull Spread)
+
+Un call spread se conforma de un call largo $\text{Call}(T,K_1)$ y un call corto $\text{Call}(T,K_2)$ con $K_1<K_2$. Este producto permite una cobertura en caso de que el subyacente aumente, limitando la ganancia hasta nivel $K_2$. Al tener la ganancia limitada, este producto resulta más barato que un call tradicional.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Call Spread
+k1 <- 125
+X <- pmax(s-k,0) - pmax(s-k1,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Call Spread") +
+  geom_vline(aes(xintercept = k,color="Strike 1")) +
+  geom_vline(aes(xintercept = k1,color="Strike 2")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Put Spread (Bear Spread)
+
+Un put spread se conforma de un put largo $\text{Put}(T,K_2)$ y un put corto $\text{Put}(T,K_1)$ con $K_1<K_2$. Este producto permite una cobertura en caso de que el subyacente disminuya, limitando la ganancia hasta nivel $K_2$. Al tener la ganancia limitada, este producto resulta más barato que un put tradicional.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Put Spread
+k1 <- 75
+X <- pmax(k-s,0) - pmax(k1-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Put Spread") +
+  geom_vline(aes(xintercept = k,color="Strike 1")) +
+  geom_vline(aes(xintercept = k1,color="Strike 2")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Straddle
+
+Un straddle se conforma de un put largo $\text{Put}(T,K)$ y un call largo $\text{Call}(T,K)$. Este producto genera ganancias en cualquier dirección que tome el subyacente, sin embargo, dicha ganancia segura se ve reflejada en un precio alto. Se usa principalmente cuando se prevé gran volatilidad en el mercado.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Straddle
+X <- pmax(s-k,0) + pmax(k-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Straddle") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Strangle
+
+Un strangle se conforma de un put largo $\text{Put}(T,K_1)$ y un call largo $\text{Call}(T,K_2)$ con $K_1<K_2$. Este producto es similar al straddle, sin embargo, el subyacente debe moverse mucho más para que haya ganancias, razón por la resulta más barato que un straddle.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Strangle
+k1 <- 75
+k2 <- 125
+X <- pmax(s-k2,0) + pmax(k1-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Strangle") +
+  geom_vline(aes(xintercept = k1,color="Strike 1")) +
+  geom_vline(aes(xintercept = k2,color="Strike 2")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Risk-Reversal
+
+Un Risk-Reversal se conforma de un put corto $\text{Put}(T,K_1)$ y un call largo $\text{Call}(T,K_2)$ con $K_1<K_2$. Este producto brinda protección en caso de una subida del subyacente pero genera pérdidas en caso de una disminución en el subyacente. Se puede pactar de forma que su precio sea 0.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Risk-Reversal
+k1 <- 75
+k2 <- 125
+X <- pmax(s-k2,0) - pmax(k1-s,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Risk-Reversal") +
+  geom_vline(aes(xintercept = k1,color="Strike 1")) +
+  geom_vline(aes(xintercept = k2,color="Strike 2")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Butterfly
+
+Un Butterfly se conforma de un strangle largo con strikes $K_!$ y $K_3$ y un straddle corto con strike $K_2$, con $K_1<K_2<K_3$. Este producto limita las ganancias en un pequeño rango y se usa principalmente cuando hay poca volatilidad en los mercados. Por lo general, la posición larga en un butterfly *recibe* una prima por entrar en este contrato.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Butterfly
+k1 <- 75
+k2 <- 125
+X <- pmax(s-k1,0) - 2*pmax(s-k,0) + pmax(s-k2,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Butterfly") +
+  geom_vline(aes(xintercept = k1,color="Strike 1")) +
+  geom_vline(aes(xintercept = k2,color="Strike 2")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+# Otros Derivados Europeos
+
+También es posible usar la fórmula de riesgo neutral para valuar otros tipos de derivados europeos que no son vanilla.
+
+## Cash-or-Nothing (Opción Digital)
+
+Un call cash-or-nothing (call digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y 0 en caso contrario. Un put cash-or-nothing (put digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y 0 en caso contratio.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Call Digital
+X <- s
+X[X<k] <- 0
+X[!(X<k)] <- 1
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Call Digital") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+# Put Digital
+X <- s
+X[X<k] <- 1
+X[!(X<k)] <- 0
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Put Digital") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+```
+
+## Asset-or-Nothing
+
+Un call asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y 0 en caso contrario. Un put asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y 0 en caso contratio.
+
+```{r fig.width=6, fig.height=4,fig.align="center"}
+# Call asset or nothing
+X <- s
+X[X<k] <- 0
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Call Digital") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+# Put asset or nothing
+X <- s
+X[X>k] <- 0
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Put Digital") +
+  geom_vline(aes(xintercept = k,color="Strike")) +
+  theme(legend.title = element_blank(),legend.position = "bottom")
+
+
+```
+
+
+# Ejercicios
+
+**Ejercicio (Condor)** Un condor tiene payoff como se muestra en la siguiente gráfica.
+```{r fig.width=5, fig.height=2.5,fig.align='center',echo=FALSE}
+# Condor
+k1 <- 60
+k2 <- 75
+k3 <- 125
+k4 <- 140
+X <- pmax(s-k1,0) - pmax(s-k2,0) - pmax(s-k3,0) + pmax(s-k4,0)
+Grafica <- data.frame(Subyacente=s,Payoff=X)
+ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
+  geom_line() +
+  labs(title="Payoff Condor")
+
+```
+Exprese el condor en terminos de opciones call y put y en términos de strangles.
+
+**Ejercicio** Exprese el butterfly en términos de calls y puts.
+
+**Ejercicio** Encuentre el strike que hace que la delta de un straddle sea 0.
+
+**Ejercicio** Encuentre el strike que maximice la vega.
+
+**Ejercicio** 
+
+1. Encuentre una fórmula para el payoff de un call cash-or-nothing y un call asset-or-nothing.
+2. Utilice la fórmula de valuación de riesgo neutral para encontrar el precio de un call cash-or-nothing y un call asset-or-nothing.
+3. Demuestre que el precio de un call vanilla se puede expresar en términos de un call cash-or-nothing y un call asset-or-nothing.
+
+**Ejercicio** Definimos un derivado con el siguiente payoff $X(T)=(S(T)-K)_+$ si $K_1<S(T)<K_2$ con $K<K_1<K_2$.
+
+1. Grafique el payoff.
+2. Exprese el derivado en términos de un call cash-or-nothing y un call asset-or-nothing y encuentre su precio.
+
+**Ejercicio (Chooser Option)** Sea $C(t;T,K)$ el valor de una opción call, $P(t;T,K)$ el valor de una opción put y $f(t;T,K)$ el valor de un forward.
+Una opción chooser permite a la posición larga escoger en una fecha $t_0\in[0,T]$ entre una opción call y una opción put, ambas con mismo strike $K$ y vencimiento $T$.
+
+1. Demustre que el payoff a tiempo $t_0$ se puede escribir como $$C(t_0)+\max\{0,-f(t_0)\}=C(t_0)+(e^{-t(T-t_0)}K-S(t_0))_+$$
+2. Demustre que el valor de la opción chooser a tiempo 0 es igual a una opción call $C(0;T,K)$ más una opción put $P(0;t_0,e^{-r(T-t_0)}K)$.
+
+Hint: Utilice la paridad put-call, la fórmula de valuación de riesgo neutral y esperanza iterada.
+
+# Bibliografía
+
+* Musiela, M. and Rutkowski, M. (2005) *Martingale Methods in Financial Modelling*, Spinger-Verlag, New York. 
+* Shreve, S. (2004) *Stochastic Calculus for Finance II: Continuous-Time Models*, Springer-Verlag, New York.
+* Wystup, U. (2017) *FX Options and Structure Products*, Wiley, United Kingdom.

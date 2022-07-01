@@ -1,0 +1,423 @@
+---
+title: Movimiento Browniano
+author: https://github.com/CharlySC/Derivados
+date: 'Última fecha de modificación: `r Sys.Date()`'
+output:
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_float: true
+    number_sections: true
+    theme: readable
+    code_folding: show
+subtitle: Carlos Adrián Sandoval Cuenca
+header_includes:
+- \usepackage{amsmath}
+- \usepackage{amssymb}
+- \usepackage{amsthm}
+toc-title: Contenido
+---
+
+```{r global_options, include=FALSE,warning=FALSE}
+knitr::opts_chunk$set(comment = NA,warning = FALSE,echo=FALSE)
+```
+\pagenumbering{gobble}
+```{r, include=FALSE}
+###### Paqueterias ######
+library(ggplot2)
+library(tidyr)
+```
+
+# Movimiento Browniano
+
+**Definición 1 (Movimiento Browniano)** Sea $\mathbb{T} = [0,T]$, con $T>0$. Un movimiento Browniano es un procesos estocástico $\{W(t)\}_{t\in\mathbb{T}}$ que satisface:
+
+1. $W(0)=0$ $\mathbb{P}$-c.s.
+2. Tiene trayectorias continuas. 
+3. Tiene incrementos independientes, es decir, $W(t)-W(s)$ es independiente de $\mathcal{F}_s$ para toda $s<t$.
+4. Tiene incrementos estacionarios con $W(t)-W(s)\sim N(0,t-s)$ para toda $s<t$.
+
+Para simular un movimiento browniano, tomamos una partición uniforme $0=t_0<\ldots<t_N=T$ del intervalo $\mathbb{T}$ donde $t_{i+1}-t_i=T/N$, para toda $i\in\{0,\ldots,N-1\}$ y observamos que
+\begin{equation}
+W(t_n) = \sum_{i=0}^{n-1} W(t_{i+1})-W(t_i)
+\end{equation}
+donde $W(t_{i+1})-W(t_i)\sim N(0,t_{i+1}-t_i)\sim N(0,T/N)$.
+
+## Movimiento Browniano con Drift
+
+La primer modificación del movimiento Browniano consiste en incluir una tendencia (drift) $\mu$ controla la dirección hacia donde se mueve el Browniano y una volatilidad $\sigma$ que controla el tamaño de las variaciones del Browniano
+
+\begin{equation}
+S(t) = S(0) + \mu t + \sigma W(t)
+\end{equation}
+
+El problema al usar este modelo es que $\mathbb{P}(S(t)\leq0)>0$-c.s. por lo que si se emplea para modelar el precio de algún activo, se podría incurrir en precios negativos.
+
+## Movimiento Browniano Geométrico
+
+La forma más fácil de corregir el problema anterior es aplicarle una función que sea positiva, lo cual nos lleva al movimiento Browniano Geométrico
+
+\begin{equation}
+S(t) = S(0)\exp \left\lbrace \mu t + \sigma W(t) \right\rbrace
+\end{equation}
+
+A continuación se muestra una comparativa entre los diferentes movimientos Brownianos con $N=1000$ puntos de la partición
+
+```{r, echo=TRUE}
+##### Comparacion entre movimientos brownianos #####
+
+# Funcion para browniano estandar
+brown <- function(n,t){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  return(w)
+}
+
+# Funcion para browniano con drift
+brown_drift <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0+mu*t+sigma*w
+  return(s)
+}
+
+# Funcion para browniano geometrico
+brown_geom <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp(mu*t+sigma*w)
+  return(s)
+}
+
+# Movimientos Brownianos con tendencia positiva
+n <- 1000
+t <- seq(0,1,1/n)
+s0 <- 1
+mu <- -.9
+sigma <- .8
+seed <- 987654
+  
+set.seed(seed)
+s1 <- brown(n,1)
+
+set.seed(seed)
+s2 <- brown_drift(n,1,s0,mu,sigma)
+
+set.seed(seed)
+s3 <- brown_geom(n,1,s0,mu,sigma)
+
+Simulaciones <- data.frame(tiempo=t,
+                           Estandar=s1,
+                           Drift=s2,
+                           Geometrico=s3)
+
+Simulaciones <- gather(Simulaciones,tipo,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=tipo)) +
+  geom_line() +
+  labs(title="Comparación Movimientos Brownianos",subtitle="Tendencia a la baja")
+
+# Movimientos Brownianos con tendencia positiva
+mu <- .9 
+seed <- 987654
+
+set.seed(seed)
+s1 <- brown(n,1)
+
+set.seed(seed)
+s2 <- brown_drift(n,1,s0,mu,sigma)
+
+set.seed(seed)
+s3 <- brown_geom(n,1,s0,mu,sigma)
+
+Simulaciones <- data.frame(tiempo=t,
+                           Estandar=s1,
+                           Drift=s2,
+                           Geometrico=s3)
+
+Simulaciones <- gather(Simulaciones,tipo,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=tipo)) +
+  geom_line() +
+  labs(title="Comparación Movimientos Brownianos",subtitle="Tendencia a la alza")
+
+```
+
+\newpage
+
+# Ecuaciones Diferenciales Estocásticas
+
+En el modelo de Black-Scholes el precio del subyacente sigue la EDE
+\begin{equation}
+dS(t)=\mu S(t)dt + \sigma S(t)dW(t).
+\end{equation}
+
+Aplicando lema de Itô a la función $\log (x)$ y despejando $S(t)$ obtenemos la solución
+\begin{equation}
+S(t)=S(0)\exp \left\lbrace \left(\mu-\frac{1}{2}\sigma^2\right)t + \sigma W(t) \right\rbrace.
+\end{equation}
+
+Para encontrar el precio de una opción se debe convertir en martingala al subyacente $\{S(t)\}_{t\in\mathbb{T}}$ mediante un cambio de medida $\widetilde{\mathbb{P}}$, el cual consiste en utilizar el Teorema de Girsanov para desaparecer el drift $\mu$ en la dinámica del subyacente.
+
+Al hacer esto, la nueva dinámica del subyacente bajo la nueva medida $\widetilde{\mathbb{P}}$ es
+\begin{equation}
+dS(t)=\sigma S(t)d\widetilde{W}(t),
+\end{equation}
+
+cuya solución está dada por
+\begin{equation}
+S(t)=S(0)\exp \left\lbrace -\frac{1}{2}\sigma^2t + \sigma \widetilde{W}(t) \right\rbrace,
+\end{equation}
+
+donde $\widetilde{W}$ es un movimiento Browniano bajo la nueva medida $\widetilde{\mathbb{P}}$. Bajo está nueva dinámica, el proceso $\{S(t)\}_{t\in\mathbb{T}}$ es martingala bajo $\widetilde{\mathbb{P}}$.
+
+```{r,echo=TRUE}
+##### Multiples simulaciones #####
+
+# Browniano con tendencia
+brown_geom_nomartingala <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp((mu-.5*sigma^2)*t+sigma*w)
+  return(s)
+}
+
+num_simulaciones <- 50
+num_puntos <- 100
+s0 <- 100
+mu <- .9
+sigma <- .2
+t <- seq(0,1,1/num_puntos)
+
+Simulaciones <- matrix(0,nrow = num_puntos+1,ncol = num_simulaciones)
+for(i in 1:ncol(Simulaciones)){
+  Simulaciones[,i] <- brown_geom_nomartingala(num_puntos,1,s0,mu,sigma)
+}
+Simulaciones <- cbind.data.frame(tiempo=t,Simulaciones)
+Simulaciones <- gather(Simulaciones,simulacion,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=simulacion)) +
+  geom_line() +
+  labs(title="Comparación Movimientos Brownianos",subtitle="Con Drift") +
+  theme(legend.position = 'none')
+
+
+# Browniano sin tendencia (martingala)
+brown_geom_martingala <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp(-.5*sigma^2*t+sigma*w)
+  return(s)
+}
+
+Simulaciones <- matrix(0,nrow = num_puntos+1,ncol = num_simulaciones)
+for(i in 1:ncol(Simulaciones)){
+  Simulaciones[,i] <- brown_geom_martingala(num_puntos,1,s0,mu,sigma)
+}
+Simulaciones <- cbind.data.frame(tiempo=t,Simulaciones)
+Simulaciones <- gather(Simulaciones,simulacion,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=simulacion)) +
+  geom_line() +
+  labs(title="Comparación Movimientos Brownianos",subtitle="Sin Drift (Martingala)") +
+  theme(legend.position = 'none')
+
+```
+
+El concepto de martingala fue introducido por Paul Lèvy en 1934 y mucha de la teoría de martingalas fue desarrollada por Joseph Doob. El concepto está asociado con el precio justo de una apuesta, razón por la cual tiene aplicaciones en el mundo de las finanzas.
+
+De la definición de martingala, tenemos que si $\{S(t)\}_{t\in\mathbb{T}}$ es martingala, entonces por esperanza iterada
+\begin{equation*}
+\mathbb{E}(S(t)) = \mathbb{E}(\mathbb{E}(S(t)\mid \mathcal{F}_0)) = \mathbb{E}(S(0)) = S(0).
+\end{equation*}
+
+# Método de Euler-Maruyama
+
+Consideremos una EDE de la siguiente forma
+\begin{equation}
+dX(t)=\mu(X(t))dt + \sigma(X(t))dW(t).
+\end{equation}
+
+En la mayoría de los casos, resolver EDE es muy difícil, sin embargo, es posible realizar simulaciones del proceso a partir de su EDE a través del método de *Euler-Maruyama*.
+
+Tomando una partición uniforme $0=t_0<t_1\ldots<t_N=T$ del intervalo $\mathbb{T}$, donde $t_{i+1}-t_i=\Delta t$ y un punto inicial $X(0)$, la discretización de Euler-Maruyama está dada por
+\begin{align}
+Y(0) &= X(0) \\
+Y(t_{n+1}) &= Y(t_n) + \mu(Y(t_n))\Delta t + \sigma(Y(t_n))\Delta W,
+\end{align}
+para $n\in\{1,\ldots,N-1\}$ y con $\Delta W = W(t_{n+1})-W(t_n)\sim N(0,\Delta t)$.
+
+Bajo ciertas condiciones sobre las funciones $\mu(x)$ y $\sigma(x)$, el método de Euler-Maruyama converge a la solución de la EDE a medida que las particiones se hacen más finas, i.e. cuando $N\rightarrow\infty$.
+
+## Proceso de Ornstein–Uhlenbeck
+
+El proceso de Ornstein–Uhlenbeck está dado por la EDE
+\begin{equation}
+dX(t)=\kappa(\theta-X(t))dt + \sigma dW(t)
+\end{equation}
+
+Este proceso suele utilizarse para modelar tasas de interés, y en este contexto tamnién es conocido como modelo de Vasicek. El parámetro $\theta>0$ mide el punto de convergencia del proceso, el parámetro $\kappa$ mide la velocidad de convergencia al punto $theta>0$ y $\sigma>0$ es el parámetro de la volatilidad.
+
+Un problema de este proceso es que cuando el proceso se encuentra cerca de $0$, la dinámica se convierte en $\kappa\theta dt + \sigma dW(t)$, por lo que el proceso puede ser negativo.
+
+```{r,echo=TRUE}
+##### Proceso de Vasicek #####
+
+Vasicek <- function(n,x0,kappa,theta,sigma){
+  x <- rep(0,n+1)
+  x[1] <- x0
+  for (i in 1:n) {
+    x[i+1] <- x[i] + kappa*(theta-x[i])*1/n + sigma*1/sqrt(n)*rnorm(1)
+  }
+  return(x)
+}
+
+num_simulaciones <- 10
+num_puntos <- 100
+x0 <- .4
+kappa <- 5
+theta <- .1
+sigma <- 1.5
+t <- seq(0,1,1/num_puntos)
+
+Simulaciones <- matrix(0,nrow = num_puntos+1,ncol = num_simulaciones)
+for(i in 1:ncol(Simulaciones)){
+  Simulaciones[,i] <- Vasicek(num_puntos,x0,kappa,theta,sigma)
+}
+Simulaciones <- cbind.data.frame(tiempo=t,Simulaciones)
+Simulaciones <- gather(Simulaciones,simulacion,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=simulacion)) +
+  geom_line() +
+  labs(title="Proceso de Ornstein-Uhlenbeck (Vasicek)",subtitle="Método Euler-Maruyama") +
+  theme(legend.position = 'none')
+
+```
+
+## Proceso de Cox-Ingersoll-Ross
+
+El proceso de Cox-Ingersoll-Ross (CIR) está dado por la EDE
+\begin{equation}
+dX(t)=\kappa(\theta-X(t))dt + \sigma \sqrt{X(t)}dW(t)
+\end{equation}
+
+Este proceso surge como una alternativa al modelo de Vasicek para corregir el problema de negatividad del proceso. En este caso, cuando el proceso se encuentra cerca de $0$, la dinámica se convierte en $\kappa\theta dt$, por lo que el proceso tiende a alejarse de la zona negativa. En general el proceso siempre es no-negativo, sin embargo, si se cumple la condición de Feller $2\kappa \theta > \sigma$, entonces el proceso es estrictamente positivo c-s.
+
+**Observación:** A pesar de que el método de Euler-Maruyama converge a la solución de la EDE, al ser una discretización, lo que se genera es un \underline{proceso estocástico nuevo}, de modo que puede que las propiedades del proceso original no se cumplan, por ejemplo, el modelo CIR, a pesar de ser siempre positivo, al realizar la discretización, puede generar valores negativos y ocasionar problemas con la raíz cuadrada. Para solucionar esto se pueden tomar las siguientes modificaciones en la discretización.
+
+\begin{align}
+Y(t_{n+1}) &= Y(t_n) + \kappa(\theta-\mid Y(t_n)\mid)\Delta t + \sigma\sqrt{\mid Y(t_n)\mid}\Delta W, \\
+Y(t_{n+1}) &= Y(t_n) + \kappa(\theta-(Y(t_n))_+)\Delta t + \sigma\sqrt{(Y(t_n))_+}\Delta W,
+\end{align}
+
+```{r,echo=TRUE,fig.height=3}
+##### Proceso CIR #####
+
+CIR <- function(n,x0,kappa,theta,sigma){
+  x <- rep(0,n+1)
+  x[1] <- x0
+  for (i in 1:n) {
+    x[i+1] <- x[i] + kappa*(theta-max(x[i],0))*1/n + sigma*sqrt(max(x[i],0))*1/sqrt(n)*rnorm(1)
+  }
+  return(x)
+}
+
+num_simulaciones <- 10
+num_puntos <- 100
+x0 <- .4
+kappa <- 2
+theta <- .1
+sigma <- .8
+t <- seq(0,1,1/num_puntos)
+
+Simulaciones <- matrix(0,nrow = num_puntos+1,ncol = num_simulaciones)
+for(i in 1:ncol(Simulaciones)){
+  Simulaciones[,i] <- CIR(num_puntos,x0,kappa,theta,sigma)
+}
+Simulaciones <- cbind.data.frame(tiempo=t,Simulaciones)
+Simulaciones <- gather(Simulaciones,simulacion,valor,-tiempo)
+ggplot(Simulaciones,aes(x=tiempo,y=valor,col=simulacion)) +
+  geom_line() +
+  labs(title="Proceso CIR",subtitle="Método Euler-Maruyama") +
+  theme(legend.position = 'none')
+
+```
+
+Puesto que ambos procesos tienen el mismo drift, ambos comparten la propiedad de reversión a la media, la diferencia radica entre la volatilidad. La volatilidad en el proceso de Vasicek $\sigma dW(t)$ está controlada únicame por el parámetro $\sigma$, por lo que la volatilidad es relativamente constante en el tiempo. Por otro lado, en el proceso CIR la volatlidad también depende del nivel del mismo proceso $\sigma \sqrt{X(t)}dW(t)$, por lo que a medida que el proceso $X(t)$ se acerca a 0, la volatilidad disminuye y a medida que se aleja de 0, la volatilidad aumenta.
+
+\newpage
+
+# Ejercicios
+
+**Ejercicio (Puente Browniano)**
+Definimos el puente Browniano como el proceso $B(t)=W(t)-\frac{t}{T}W(T)$, $t\in\mathbb{T}$. Realice simulaciones del puente Browniano.
+
+**Ejercicio (Browniano en el círculo unitario)**
+Definimos el movimiento Browniano en el círculo unitario como el proceso $X(t)=(sen(W(t)),cos(W(t)))$,  $t\in\mathbb{T}$. Realice simulaciones del Browniano en el círculo unitario.
+
+**Ejercicio**
+Realice simulaciones del proceso $\int_0^t W(t)dW(t)$.
+
+**Ejercicio**
+Sea $S(t)$ con EDE $dS(t)=\sigma S(t)dW(t)$. Realice simulaciones del proceso $\{S^p(t)\}_{t\in\mathbb{T}}$.
+(Nota: Se deben usar los mismos valores aleatorios para cada valor de $p$)
+
+**Ejercicio (Movimiento Browniano Correlacionado)**
+Sean $\{W_1(t)\}_{t\in\mathbb{T}}$ y $\{W_2(t)\}_{t\in\mathbb{T}}$ dos movimientos Brownianos y definamos
+\begin{align}
+B_1(t) &= W_1(t), \\
+B_2(t) &= \rho W_1(t) + \sqrt{1-\rho} W_2(t),
+\end{align}
+con $\rho\in [-1,1]$. 
+Demustre que $dB_1(t)dB_2(t)=\rho dt$ y realice simulaciones de $(B_1(t),B_2(t))$ para diferentes valores de $\rho$.
+
+**Ejercicio**
+Simule $n$ movimientos Brownianos geométricos con mismo parámetro de volatilidad $\sigma$ y diferentes valores de $\mu$ que vayan de 1 a -1 \\
+(Nota: Se deben usar los mismos valores aleatorios al momento de generar cada movimiento Browniano, i.e. misma trayectoria)
+
+**Ejercicio**
+Simule $n$ movimientos Brownianos geométricos con mismo parámetro de tendencia $\mu$ y diferentes valores de $\sigma$ que vayan de 1 a -1 \\
+(Nota: Se deben usar los mismos valores aleatorios al momento de generar cada movimiento Browniano, i.e. misma trayectoria)
+
+**Ejercicio**
+Realice una comparativa de una trayectoria del proceso de Vasicek y el proceso CIR usando los mismos parámetros $X(0),\kappa,\theta$ y $\sigma$ \\
+(Nota: Se deben usar los mismos valores aleatorios al momento de generar cada movimiento Browniano, i.e. misma trayectoria)
+
+**Ejercicio**
+Simule un movimiento Browniano geométrico usando la fórmula cerrada y usando el método de Euler-Maruyama y compare las diferencias. \\
+(Nota: Se deben usar los mismos valores aleatorios al momento de generar cada movimiento Browniano, i.e. misma trayectoria)
+
+**Ejercicio (Método de Milstein)**
+Es posible mejorar la velocidad de convergencia en el metodo de Euler-Maruyama al incluir más términos en el desarollo de su aproximación. Si se incluyen terminos de segundo grado, obtenemos el método de Milstein
+\begin{align}
+Y(0) &= X(0) \\
+Y(t_{n+1}) &= Y(t_n) + \mu(Y(t_n))\Delta t + \sigma(Y(t_n))\Delta W + \frac{1}{2}\sigma(Y(t_n))\sigma'(Y(t_n))(\Delta W^2-\Delta t),
+\end{align}
+para $n\in\{1,\ldots,N-1\}$ y con $\Delta W = W(t_{n+1})-W(t_n)\sim N(0,\Delta t)$.
+Realice simulaciones del proceso Vasicek y del proceso CIR bajo el método de Milstein y compare contra el método de Euler-Maruyama. \\
+(Nota: Se deben usar los mismos valores aleatorios al momento de generar cada movimiento Browniano, i.e. misma trayectoria)
+
+**Ejercicio (Modelo Heston)**
+Definimos el modelo Heston como el proceso
+\begin{align}
+dS(t) &= \mu S(t)dt + \sqrt{V(t)}S(t)d\widetilde{W}_1(t), \\
+dV(t) &= \kappa(\theta -V(t))dt + \sigma\sqrt{V(t)}d\widetilde{W}_2(t), \\
+dW_1(t)dW_2(t) &= \rho dt
+\end{align}
+donde $\{W_1(t)\}_{t\in\mathbb{T}}$ y $\{W_2(t)\}_{t\in\mathbb{T}}$ son 2 movimientos Brownianos correlacionados con $\rho\in[-1,1]$ y la volatilidad $\sqrt{V(t)}$ sigue un proceso CIR (a través del proceso varianza $V(t)$)
+Realice simulaciones del modelo Heston bajo el método de Euler-Maruyama.
+
+\newpage
+
+# Bibliografía
+
+* Douglas, R.F. and Heston, S. (2013) *The Heston model and its extensions in Matlab and C\#*, Wiley, New Jersey.
+* Heston, S. (1993) *A closed-form solution for options with stochastic volatility and application to bond and currency options*, The Review of Financial Studies, 6, 327-343.
+* Hull, J. (2018) *Options, Futures and other Derivative Securities*, 10th edition, Pearson, New York.
+* Karatzas, I. and Shreve, S. (1991) *Brownian Motion and Stochastic Calculus*, Springer-Verlag, New York.
+* Kloeden, P. and Platen, E. (1995) *Numerical solution of stochastic differential equations*, Springer-Verlag, New York.
+* Shreve, S. (2004) *Stochastic Calculus for Finance II: Continuous-Time Models*, Springer-Verlag, New York.
