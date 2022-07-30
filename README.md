@@ -1,4 +1,4 @@
-##### Curso Derivados Facultad de Ciencias UNAM #####
+# Curso Derivados Facultad de Ciencias UNAM
 
 En este repositorio se encuentran algunas aplicaciones de finanzas cuantitativas y derivados 
 de las clases que imparti como ayudante en la materia de Derivados en la Facultad de Ciencias de la UNAM.
