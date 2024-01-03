@@ -1,6 +1,6 @@
 ---
 title: Estrategias
-author: https://github.com/CharlySC/Derivados
+author: https://github.com/CharlySC/Derivados/RPubs
 date: 'Última fecha de modificación: `r Sys.Date()`'
 output:
   html_document:
@@ -235,7 +235,7 @@ ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
 
 ## Risk-Reversal
 
-Un Risk-Reversal se conforma de un put corto $\text{Put}(T,K_1)$ y un call largo $\text{Call}(T,K_2)$ con $K_1<K_2$. Este producto brinda protección en caso de una subida del subyacente pero genera pérdidas en caso de una disminución en el subyacente. Se puede pactar de forma que su precio sea 0.
+Un Risk-Reversal se conforma de un put corto $\text{Put}(T,K_1)$ y un call largo $\text{Call}(T,K_2)$ con $K_1<K_2$. Este producto brinda protección en caso de una subida del subyacente pero genera pérdidas en caso de una disminución en el subyacente. Se puede pactar de forma que su precio sea $0$.
 
 ```{r fig.width=6, fig.height=4,fig.align="center"}
 # Risk-Reversal
@@ -254,7 +254,7 @@ ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
 
 ## Butterfly
 
-Un Butterfly se conforma de un strangle largo con strikes $K_!$ y $K_3$ y un straddle corto con strike $K_2$, con $K_1<K_2<K_3$. Este producto limita las ganancias en un pequeño rango y se usa principalmente cuando hay poca volatilidad en los mercados. Por lo general, la posición larga en un butterfly *recibe* una prima por entrar en este contrato.
+Un Butterfly se conforma de un call largo con strike $K_!$, dos call cortos con strikes $K_3$ y un call largo con strike $K_2$, con $K_1<K_2<K_3$. Este producto limita las ganancias en un pequeño rango y se usa principalmente cuando hay poca volatilidad en los mercados. Por lo general, la posición larga en un butterfly *recibe* una prima por entrar en este contrato.
 
 ```{r fig.width=6, fig.height=4,fig.align="center"}
 # Butterfly
@@ -277,7 +277,7 @@ También es posible usar la fórmula de riesgo neutral para valuar otros tipos d
 
 ## Cash-or-Nothing (Opción Digital)
 
-Un call cash-or-nothing (call digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y 0 en caso contrario. Un put cash-or-nothing (put digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y 0 en caso contratio.
+Un call cash-or-nothing (call digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y $0$ en caso contrario. Un put cash-or-nothing (put digital) brinda a la posición larga un monto $M$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y $0$ en caso contratio.
 
 ```{r fig.width=6, fig.height=4,fig.align="center"}
 # Call Digital
@@ -306,7 +306,7 @@ ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
 
 ## Asset-or-Nothing
 
-Un call asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y 0 en caso contrario. Un put asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y 0 en caso contratio.
+Un call asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por arriba del strike $S(T)>K$ y $0$ en caso contrario. Un put asset-or-nothing brinda a la posición larga el valor del subyacente a vencimiento $S(T)$ en caso de que el subyacente termine a vencimiento por debajo del strike $S(T)<K$ y $0$ en caso contratio.
 
 ```{r fig.width=6, fig.height=4,fig.align="center"}
 # Call asset or nothing
@@ -351,13 +351,11 @@ ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
 ```
 Exprese el condor en terminos de opciones call y put y en términos de strangles.
 
-**Ejercicio** Exprese el butterfly en términos de calls y puts.
+**Ejercicio** Exprese el butterfly en términos de strangles y straddles.
 
-**Ejercicio** Encuentre el strike que hace que la delta de un straddle sea 0.
+**Ejercicio** Encuentre el strike que hace que la delta de un straddle sea $0$.
 
-**Ejercicio** Encuentre el strike que maximice la vega.
-
-**Ejercicio** 
+**Ejercicio** Resuelva
 
 1. Encuentre una fórmula para el payoff de un call cash-or-nothing y un call asset-or-nothing.
 2. Utilice la fórmula de valuación de riesgo neutral para encontrar el precio de un call cash-or-nothing y un call asset-or-nothing.

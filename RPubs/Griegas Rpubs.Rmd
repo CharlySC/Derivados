@@ -1,6 +1,6 @@
 ---
 title: Griegas
-author: https://github.com/CharlySC/Derivados
+author: https://github.com/CharlySC/Derivados/RPubs
 date: 'Última fecha de modificación: `r Sys.Date()`'
 output:
   html_document:
@@ -347,6 +347,8 @@ El razonamiento anterior se puede extender para incluir más griegas y hacer *ve
 **Ejercicio** Exprese la $\Delta_{\text{Call}}$ en términos de $\Delta_{\text{Put}}$.
 
 **Ejercicio** Demuestre que la $\Gamma_{\text{Call}}=\Gamma_{\text{Put}}$ y que $\nu_{\text{Call}}=\nu_{\text{Put}}$.
+
+**Ejercicio** Encuentre el strike $K$ que maximice la $\nu$.
 
 **Ejercicio (Forward Delta)** Demuestre que el número de forwards largos para cubrir una opción corta es $\phi N(\phi d_1)$.
 

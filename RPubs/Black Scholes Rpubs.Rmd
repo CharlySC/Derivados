@@ -1,6 +1,6 @@
 ---
 title: El modelo de Black-Scholes
-author: https://github.com/CharlySC/Derivados
+author: https://github.com/CharlySC/Derivados/RPubs
 date: 'Última fecha de modificación: `r Sys.Date()`'
 output:
   html_document:
@@ -30,124 +30,43 @@ library(dplyr)
 library(ggpubr)
 ```
 
-# Movimiento Browniano
+# El modelo de mercado e instrumentos financieros derivados
 
-**Definición 1 (Movimiento Browniano)** Sea $\mathbb{T} = [0,T]$, con $T>0$. Un movimiento Browniano es un procesos estocástico $\{W(t)\}_{t\in\mathbb{T}}$ que satisface:
-
-1. $W(0)=0$ $\mathbb{P}$-c.s.
-2. Tiene trayectorias continuas. 
-3. Tiene incrementos independientes, es decir, $W(t)-W(s)$ es independiente de $\mathcal{F}_s$ para toda $s<t$.
-4. Tiene incrementos estacionarios con $W(t)-W(s)\sim N(0,t-s)$ para toda $s<t$.
-
-Para simular un movimiento browniano, tomamos una partición uniforme $0=t_0<\ldots<t_N=T$ del intervalo $\mathbb{T}$ donde $t_{i+1}-t_i=T/N$, para toda $i\in\{0,\ldots,N-1\}$ y observamos que
+**Definición 1 (Cuenta de Mercado de Dinero)**
+Definimos la cuenta de mercado de dinero (o activo libre de riesgo) a través del proceso $\left\lbrace B(t)\right\rbrace _{t\in \mathbb{T}}$, el cual satisface
 \begin{equation}
-W(t_n) = \sum_{i=0}^{n-1} W(t_{i+1})-W(t_i)
+dB(t)=r(t)B(t)dt, \qquad B(0)=1,
 \end{equation}
-donde $W(t_{i+1})-W(t_i)\sim N(0,t_{i+1}-t_i)\sim N(0,T/N)$.
-
-## Movimiento Browniano con Drift
-
-La primer modificación del movimiento Browniano consiste en incluir una tendencia (drift) $\mu$ controla la dirección hacia donde se mueve el Browniano y una volatilidad $\sigma$ que controla el tamaño de las variaciones del Browniano
-
+o equivalentemente
 \begin{equation}
-S(t) = S(0) + \mu t + \sigma W(t)
+B(t)=e^{\int_0^t{r(s)}ds}, \label{C1:cuenta_mercado}
 \end{equation}
 
-El problema al usar este modelo es que $\mathbb{P}(S(t)\leq0)>0$-c.s. por lo que si se emplea para modelar el precio de algún activo, se podría incurrir en precios negativos.
+donde $\{ r(t) \}_{t\in \mathbb{T}}$ es la \textit{tasa libre de riesgo}, la cual puede ser determinista o estocástica pero debe de ser $\mathcal{F}_t$ medible. Si la tasa libre de riesgo es constante $r$, obtenemos $B(t)=e^{rt}$. 
+El proceso $B(t)$ representa el valor de una unidad monetaria en un tiempo futuro $t$.
 
-## Movimiento Browniano Geométrico
-
-La forma más fácil de corregir el problema anterior es aplicarle una función que sea positiva, lo cual nos lleva al movimiento Browniano Geométrico
-
+**Definición 2**
+Definimos el precio de un activo (riesgoso) que no paga dividendos como el proceso estocástico $\{S(t)\}_{t\in \mathbb{T}}$, el cual sigue un movimiento Browniano geométrico con la siguiente ecuación diferencial estocástica (EDE)
 \begin{equation}
-S(t) = S(0)\exp \left\lbrace \mu t + \sigma W(t) \right\rbrace
+dS(t)=\mu S(t)dt+\sigma S(t)dW(t), \label{C1:d_S_mu}
 \end{equation}
+donde $\{W(t)\}_{t\in\mathbb{T}}$ es un movimiento Browniano definido sobre el espacio de probabilidad filtrado $(\Omega, \mathcal{F}, \mathbb{P}, \{\mathcal{F}_t \}_{t\in\mathbb{T}})$, con $\{\mathcal{F}_t\}_{t\in\mathbb{T}}$ la filtración natural del movimiento Browniano y la medida de probabilidad $\mathbb{P}$, la cual llamamos \textit{medida real}, es con la cual medimos los movimientos del activo de riesgo. A la constante $\mu$ le llamamos la \textit{tendencia} (drift) y a $\sigma$ le llamamos la \textit{volatilidad}.
 
-A continuación se muestra una comparativa entre los diferentes movimientos Brownianos con $N=1000$ puntos de la partición
+**Definición 3 (Derivado Financiero)**
+Un instrumento financiero derivado es un contrato entre dos partes (una posición larga y una posición corta) cuyo precio depende del precio de otro activo llamado activo subyacente.
 
-```{r, echo=TRUE}
-##### Comparacion entre movimientos brownianos #####
+Los derivados pueden clasificarse de diversas maneras, principalmente se clasifican por el momento en el que los contratos pueden ser ejercidos; si la decisión de ser ejercido se da a vencimiento $T$, se dice que es de tipo *europeo*, si el contrato puede ejercerse en cualquier instante $t\in \mathbb{T}$, se dice que es de tipo *americano* y si el valor del contrato depende de la trayectoria recorrida por el subyacente, diremos que es una opción *exótica*. En este documento nos enfocaremos en derivados de tipo europeo, en particular en opciones call y put, cuyas definiciones se presentan a continuación.
 
-# Funcion para browniano estandar
-brown <- function(n,t){
-  z <- rnorm(n)
-  z <- sqrt(t/n)*z
-  w <- c(0,cumsum(z))
-  return(w)
-}
+**Definición 4 (Forward)**
+Un forward es un derivado, donde la posición larga se compromete a comprar en una fecha futura $T$ (vencimiento) una unidad de subyacente a la posición corta a un precio (strike) $K$ pactado desde el inicio del contrato.
 
-# Funcion para browniano con drift
-brown_drift <- function(n,t,s0,mu,sigma){
-  z <- rnorm(n)
-  z <- sqrt(t/n)*z
-  w <- c(0,cumsum(z))
-  t <- seq(0,t,by=t/n)
-  s <- s0+mu*t+sigma*w
-  return(s)
-}
+**Definición 5 (Call Europeo)**
+Una opción call es un derivado que brinda a la posición larga el derecho, mas no la obligación, de comprar a vencimiento $T$ una unidad de subyacente a la posición corta a un precio (strike) $K$ pactado al inicio del contrato.
 
-# Funcion para browniano geometrico
-brown_geom <- function(n,t,s0,mu,sigma){
-  z <- rnorm(n)
-  z <- sqrt(t/n)*z
-  w <- c(0,cumsum(z))
-  t <- seq(0,t,by=t/n)
-  s <- s0*exp(mu*t+sigma*w)
-  return(s)
-}
+**Definición 6 (Put Europeo)**
+Una opción call es un derivado que brinda a la posición larga el derecho, mas no la obligación, de vender a vencimiento $T$ una unidad de subyacente a la posición corta a un precio (strike) $K$ pactado al inicio del contrato.
 
-# Movimientos Brownianos con tendencia positiva
-n <- 1000
-t <- seq(0,1,1/n)
-s0 <- 1
-mu <- -.9
-sigma <- .8
-seed <- 987654
-  
-set.seed(seed)
-s1 <- brown(n,1)
-
-set.seed(seed)
-s2 <- brown_drift(n,1,s0,mu,sigma)
-
-set.seed(seed)
-s3 <- brown_geom(n,1,s0,mu,sigma)
-
-Simulaciones <- data.frame(tiempo=t,
-                           Estandar=s1,
-                           Drift=s2,
-                           Geometrico=s3)
-
-Simulaciones <- gather(Simulaciones,tipo,valor,-tiempo)
-ggplot(Simulaciones,aes(x=tiempo,y=valor,col=tipo)) +
-  geom_line() +
-  labs(title="Comparación Movimientos Brownianos",subtitle="Tendencia a la baja")
-
-# Movimientos Brownianos con tendencia positiva
-mu <- .9 
-seed <- 987654
-
-set.seed(seed)
-s1 <- brown(n,1)
-
-set.seed(seed)
-s2 <- brown_drift(n,1,s0,mu,sigma)
-
-set.seed(seed)
-s3 <- brown_geom(n,1,s0,mu,sigma)
-
-Simulaciones <- data.frame(tiempo=t,
-                           Estandar=s1,
-                           Drift=s2,
-                           Geometrico=s3)
-
-Simulaciones <- gather(Simulaciones,tipo,valor,-tiempo)
-ggplot(Simulaciones,aes(x=tiempo,y=valor,col=tipo)) +
-  geom_line() +
-  labs(title="Comparación Movimientos Brownianos",subtitle="Tendencia a la alza")
-
-```
-
+De las definiciones anteriores podemos pensar en los derivados como un juego de suma cero entre la posición larga y la posición corta, es decir, lo que uno gana, el otro lo pierde. Por lo tanto, siempre analizaremos los flujos de efectivo desde la posición larga, y los correspondientes flujos de efectivo de la posición corta serán los de la posición larga con signo opuesto.
 
 # El modelo de Black-Scholes
 
@@ -190,6 +109,17 @@ donde la esperanza se calcula bajo $\mathbb{\widetilde{P}}$, $N(x)$ es la funci�
 
 ```{r}
 ######## Simulacion Trayectoria ########
+
+# Simulacion de movimiento browniano
+brown_geom <- function(n,t,s0,mu,sigma){
+  z <- rnorm(n)
+  z <- sqrt(t/n)*z
+  w <- c(0,cumsum(z))
+  t <- seq(0,t,by=t/n)
+  s <- s0*exp(mu*t+sigma*w)
+  return(s)
+}
+
 n <- 1000
 t <- seq(0,1,1/n)
 s0 <- 100
@@ -270,6 +200,20 @@ p4 <- ggplot(Grafica,aes(x=Subyacente,y=Payoff)) +
 
 ggarrange(p1,p2,p3,p4,ncol = 2,nrow = 2)
 ```
+
+# Ejercicios
+
+**Ejercicio 1**
+Demuestre que la solución a la EDE $$dS(t)=\mu S(t)dt+\sigma S(t)dW(t)$$ está dada por $$S(t)=S(0)\exp\left\lbrace \left( \mu - \frac{1}{2}\sigma^2\right)t + \sigma W(t) \right\rbrace$$. (Hint: Aplique fórmula de Ito a la función $\log(x)$, integre y despeje $S(t)$).
+
+**Ejercicio 2**
+Sea $$dS(t)=rS(t)dt+\sigma S(t)dW(t)$$ donde $r$ es la tasa de interés y $\sigma>0$ es la volatilidad. Demuestre que 
+$$\mathbb{E}(e^{-rt}(S(t)-K)_+)=S(0)N(d_1)-Ke^{-rt}N(d_2)$$ donde 
+\begin{align*}
+d_1 &= \frac{1}{\sigma\sqrt{t}}\left( \log\left( \frac{S}{K}\right) +\left( r-q+\frac{1}{2}\sigma^2 \right)t \right), \\
+d_2 &= d_1 - \sigma\sqrt{t}
+\end{align*}
+y $N(x)$ es la función de densidad de una distribución normal $N(0,1)$.
 
 # Bibliografía
 

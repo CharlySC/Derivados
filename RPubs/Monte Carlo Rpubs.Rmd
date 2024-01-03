@@ -1,6 +1,6 @@
 ---
 title: Monte Carlo
-author: https://github.com/CharlySC/Derivados
+author: https://github.com/CharlySC/Derivados/RPbus
 date: 'Última fecha de modificación: `r Sys.Date()`'
 output:
   html_document:
